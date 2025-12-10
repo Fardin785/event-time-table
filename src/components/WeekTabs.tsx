@@ -2,7 +2,7 @@ import * as React from "react";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Box from "@mui/material/Box";
-import { formatLabel } from "../utility";
+import { formatLabel } from "../utils/date";
 
 interface WeekTabsProps {
   selectedIndex: number;

@@ -1,130 +1,99 @@
-import { useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import type { EventItem, Venue } from "../types/event";
+
+import { createEventSchema, type CreateEventFormValues } from "../schemas/event.schema";
+import { toLocalDateInputValue, toLocalISO } from "../utils/date";
 import { MultiSelectDropdown } from "./ui/MultiSelectDropdown";
 
 type Props = {
   venues: Venue[];
   defaultDate: Date;
-  onAdd: (e: EventItem) => void;
+  onAdd: (event: EventItem) => void;
 };
 
 export const AddEventForm: React.FC<Props> = ({ venues, defaultDate, onAdd }) => {
-  const [title, setTitle] = useState("");
-  const [date, setDate] = useState(() => defaultDate.toISOString().slice(0, 10));
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("10:00");
-  const [selectedVenueIds, setSelectedVenueIds] = useState<string[]>([]);
-  const [error, setError] = useState("");
+  const {
+    control,
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<CreateEventFormValues>({
+    resolver: zodResolver(createEventSchema),
+    defaultValues: {
+      title: "",
+      date: toLocalDateInputValue(defaultDate),
+      startTime: "09:00",
+      endTime: "10:00",
+      venueIds: [],
+    },
+  });
 
-  const toLocalISO = (yyyyMMdd: string, hhmm: string) => {
-    const [y, m, d] = yyyyMMdd.split("-").map(Number);
-    const [hh, mm] = hhmm.split(":").map(Number);
-    return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}T${String(hh).padStart(2, "0")}:${String(
-      mm
-    ).padStart(2, "0")}:00`;
-  };
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    if (!title.trim()) return setError("Event title is required.");
-    if (selectedVenueIds.length === 0) return setError("Please select at least one venue.");
-    if (startTime >= endTime) return setError("Start time must be before end time.");
-
+  const onSubmit = (values: CreateEventFormValues) => {
     const event: EventItem = {
       id: crypto.randomUUID(),
-      title: title.trim(),
-      venueIds: selectedVenueIds,
-      start: toLocalISO(date, startTime),
-      end: toLocalISO(date, endTime),
+      title: values.title.trim(),
+      venueIds: values.venueIds,
+      start: toLocalISO(values.date, values.startTime),
+      end: toLocalISO(values.date, values.endTime),
     };
-
     onAdd(event);
-
-    setTitle("");
-    setSelectedVenueIds([]);
-    setStartTime("09:00");
-    setEndTime("10:00");
-    setError("");
+    reset();
   };
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <h3 className="font-semibold text-lg">Create Event</h3>
-      {error && <p className="text-red-600 text-sm">{error}</p>}
 
-      <div className="flex flex-col">
-        <label htmlFor="event-title" className="text-sm font-medium mb-1">
-          Event Title
-        </label>
-        <input
-          id="event-title"
-          type="text"
-          className="border rounded px-3 py-2 w-full focus:outline-none focus:ring focus:ring-blue-200"
-          placeholder="Enter event title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
+      <div>
+        <label className="text-sm font-medium">Event Title</label>
+        <input {...register("title")} className="border rounded px-3 py-2 w-full" />
+        {errors.title && <p className="text-red-600 text-sm mt-1">{errors.title.message}</p>}
       </div>
 
-      <div className="flex flex-col">
-        <label htmlFor="event-date" className="text-sm font-medium mb-1">
-          Date
-        </label>
-        <input
-          id="event-date"
-          type="date"
-          className="border rounded px-3 py-2 w-full focus:outline-none focus:ring focus:ring-blue-200"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
+      <div>
+        <label className="text-sm font-medium">Date</label>
+        <input type="date" {...register("date")} className="border rounded px-3 py-2 w-full" />
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-        <div className="flex-1 flex flex-col">
-          <label htmlFor="start-time" className="text-sm font-medium mb-1">
-            Start Time
-          </label>
-          <input
-            id="start-time"
-            type="time"
-            step={900}
-            className="border rounded px-3 py-2 w-full focus:outline-none focus:ring focus:ring-blue-200"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-          />
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <label className="text-sm font-medium">Start Time</label>
+          <input type="time" step={900} {...register("startTime")} className="border rounded px-3 py-2 w-full" />
         </div>
 
-        <div className="flex-1 flex flex-col">
-          <label htmlFor="end-time" className="text-sm font-medium mb-1">
-            End Time
-          </label>
-          <input
-            id="end-time"
-            type="time"
-            step={900}
-            className="border rounded px-3 py-2 w-full focus:outline-none focus:ring focus:ring-blue-200"
-            value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
-          />
+        <div className="flex-1">
+          <label className="text-sm font-medium">End Time</label>
+          <input type="time" step={900} {...register("endTime")} className="border rounded px-3 py-2 w-full" />
         </div>
       </div>
 
-      <div className="flex flex-col">
-        <label className="text-sm font-medium mb-1">Select Venues</label>
-        <MultiSelectDropdown
-          options={venues.map((v) => ({ id: v.id, label: v.name }))}
-          selectedIds={selectedVenueIds}
-          onChange={setSelectedVenueIds}
-          placeholder="Select venues"
+      {errors.endTime && <p className="text-red-600 text-sm mt-1">{errors.endTime.message}</p>}
+
+      <div>
+        <label className="text-sm font-medium">Select Venues</label>
+
+        <Controller
+          name="venueIds"
+          control={control}
+          render={({ field }) => (
+            <MultiSelectDropdown
+              options={venues.map((v) => ({
+                id: v.id,
+                label: v.name,
+              }))}
+              selectedIds={field.value}
+              onChange={field.onChange}
+              placeholder="Select venues"
+            />
+          )}
         />
+
+        {errors.venueIds && <p className="text-red-600 text-sm mt-1">{errors.venueIds.message}</p>}
       </div>
 
-      <button
-        type="submit"
-        className="w-full bg-blue-600 text-white py-2 rounded font-medium hover:bg-blue-700 transition"
-      >
+      <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
         Add Event
       </button>
     </form>
